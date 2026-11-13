@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RAG Search Engine</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --panel: #ffffff; --text: #1d232b; --muted: #5f6b7a;
+    --border: #e1e5ea; --accent: #2c5bd8; --accent-soft: #e8eefc; --error: #b42318;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #12161c; --panel: #1a2029; --text: #e6e9ee; --muted: #9aa5b4;
+      --border: #2a323d; --accent: #7b9cff; --accent-soft: #232c40; --error: #ff8a80;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+         font: 16px/1.55 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  main { max-width: 760px; margin: 0 auto; padding: 48px 16px 64px; }
+  h1 { font-size: 1.6rem; margin: 0 0 4px; }
+  .subtitle { color: var(--muted); margin: 0 0 28px; font-size: 0.95rem; }
+  .tabs { display: flex; gap: 4px; margin-bottom: 12px; }
+  .tab { border: 1px solid var(--border); background: var(--panel); color: var(--muted);
+         padding: 6px 14px; border-radius: 999px; cursor: pointer; font: inherit; font-size: 0.9rem; }
+  .tab[aria-selected="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
+  form { display: flex; gap: 8px; }
+  input { flex: 1; min-width: 0; padding: 12px 14px; font: inherit; color: var(--text);
+          background: var(--panel); border: 1px solid var(--border); border-radius: 10px; }
+  input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  button.go { padding: 0 20px; font: inherit; font-weight: 600; color: #fff; background: var(--accent);
+              border: 0; border-radius: 10px; cursor: pointer; }
+  button.go:disabled { opacity: 0.6; cursor: wait; }
+  .answer { background: var(--panel); border: 1px solid var(--border); border-radius: 12px;
+            padding: 18px 20px; margin-top: 24px; white-space: pre-wrap; }
+  .cite { background: var(--accent-soft); color: var(--accent); border-radius: 4px;
+          padding: 0 4px; font-size: 0.85em; font-weight: 600; }
+  h2 { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin: 28px 0 10px; }
+  .result { background: var(--panel); border: 1px solid var(--border); border-radius: 12px;
+            padding: 14px 16px; margin-bottom: 10px; }
+  .result-title { font-weight: 600; }
+  .num { color: var(--accent); margin-right: 6px; }
+  .snippet { color: var(--muted); font-size: 0.92rem; margin: 4px 0 6px; }
+  .meta { font-size: 0.78rem; color: var(--muted); display: flex; gap: 12px; flex-wrap: wrap; }
+  .status { color: var(--muted); margin-top: 20px; }
+  .error { color: var(--error); }
+</style>
+</head>
+<body>
+<main>
+  <h1>RAG Search Engine</h1>
+  <p class="subtitle" id="dataset">Hybrid BM25 + semantic search with LLM answers</p>
+
+  <div class="tabs" role="tablist">
+    <button class="tab" role="tab" aria-selected="true" data-mode="ask">Ask a question</button>
+    <button class="tab" role="tab" aria-selected="false" data-mode="search">Search only</button>
+  </div>
+
+  <form id="form">
+    <input id="query" autocomplete="off" placeholder="Ask anything about the documents…" required maxlength="500">
+    <button class="go" id="go" type="submit">Ask</button>
+  </form>
+
+  <div id="output"></div>
+</main>
+
+<script>
+  const form = document.getElementById("form");
+  const input = document.getElementById("query");
+  const go = document.getElementById("go");
+  const output = document.getElementById("output");
+  let mode = "ask";
+
+  const escapeHtml = (s) => String(s ?? "").replace(/[&<>"']/g, (c) =>
+    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+  fetch("/api/info").then((r) => r.json()).then((d) => {
+    document.getElementById("dataset").textContent =
+      `Hybrid BM25 + semantic search with LLM answers · ${d.dataset} (${d.documents.toLocaleString()} documents)`;
+  }).catch(() => {});
+
+  document.querySelectorAll(".tab").forEach((tab) => tab.addEventListener("click", () => {
+    mode = tab.dataset.mode;
+    document.querySelectorAll(".tab").forEach((t) => t.setAttribute("aria-selected", t === tab));
+    go.textContent = mode === "ask" ? "Ask" : "Search";
+    input.placeholder = mode === "ask" ? "Ask anything about the documents…" : "Search the documents…";
+    output.innerHTML = "";
+    input.focus();
+  }));
+
+  function renderResults(items, heading) {
+    if (!items.length) return `<p class="status">No matching documents found.</p>`;
+    return `<h2>${heading}</h2>` + items.map((r, i) => `
+      <div class="result">
+        <div class="result-title"><span class="num">[${r.number ?? i + 1}]</span>${escapeHtml(r.title)}</div>
+        <div class="snippet">${escapeHtml(r.snippet)}${r.snippet && r.snippet.length >= 300 ? "…" : ""}</div>
+        <div class="meta">
+          <span>RRF score ${r.rrf_score}</span>
+          <span>Keyword rank ${r.bm25_rank ?? "–"}</span>
+          <span>Semantic rank ${r.semantic_rank ?? "–"}</span>
+        </div>
+      </div>`).join("");
+  }
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const text = input.value.trim();
+    if (!text) return;
+    go.disabled = true;
+    output.innerHTML = `<p class="status">${mode === "ask" ? "Retrieving sources and generating an answer…" : "Searching…"}</p>`;
+    try {
+      const res = await fetch(mode === "ask" ? "/api/ask" : "/api/search", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(mode === "ask" ? { question: text } : { query: text, limit: 10 }),
+      });
+      const raw = await res.text();
+      let data;
+      try { data = JSON.parse(raw); } catch { throw new Error(raw || res.statusText); }
+      if (!res.ok) throw new Error(typeof data.detail === "string" ? data.detail : JSON.stringify(data.detail ?? res.statusText));
+      if (mode === "ask") {
+        const answer = escapeHtml(data.answer).replace(/\[(\d+)\]/g, '<span class="cite">[$1]</span>');
+        output.innerHTML = `<div class="answer">${answer}</div>` + renderResults(data.sources, "Sources");
+      } else {
+        output.innerHTML = renderResults(data.results, "Results");
+      }
+    } catch (err) {
+      output.innerHTML = `<p class="status error">Something went wrong: ${escapeHtml(err.message)}</p>`;
+    } finally {
+      go.disabled = false;
+    }
+  });
+</script>
+</body>
+</html>

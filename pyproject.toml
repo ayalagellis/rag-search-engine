@@ -1,0 +1,30 @@
+[project]
+name = "rag-search-engine"
+version = "0.2.0"
+description = "Hybrid search and retrieval-augmented generation (RAG) engine built from scratch in Python"
+readme = "README.md"
+requires-python = ">=3.14"
+dependencies = [
+    "fastapi>=0.115.0",
+    "google-genai>=1.73.1",
+    "langchain-core>=1.0.0",
+    "langchain-google-genai>=3.0.0",
+    "nltk==3.9.1",
+    "numpy>=2.4.4",
+    "pillow>=12.2.0",
+    "pypdf>=5.0.0",
+    "python-dotenv>=1.2.2",
+    "sentence-transformers>=5.4.1",
+    "uvicorn>=0.30.0",
+]
+
+[dependency-groups]
+dev = [
+    "httpx>=0.27.0",
+    "pytest>=8.0.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# test_gemini.py is a manual check that calls the real Gemini API
+addopts = "--ignore=tests/test_gemini.py -p no:cacheprovider"

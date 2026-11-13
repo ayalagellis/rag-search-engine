@@ -1,0 +1,3 @@
+# CPU Scheduling
+
+The CPU scheduler decides which ready process runs next. First-come, first-served (FCFS) runs processes in arrival order, which is simple but lets one long job delay everything behind it. Shortest job first (SJF) minimizes average waiting time but needs an estimate of each job's length. Round robin gives each process a fixed time slice, called a quantum, and moves it to the back of the queue when the slice ends. A small quantum improves responsiveness but adds context-switch overhead. Priority scheduling runs the highest-priority process first, and aging gradually raises the priority of waiting processes to prevent starvation.

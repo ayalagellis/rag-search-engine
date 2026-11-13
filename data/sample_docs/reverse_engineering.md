@@ -1,0 +1,3 @@
+# Reverse Engineering Basics
+
+Reverse engineering is the analysis of a compiled program to understand how it works without its source code. Static analysis examines the binary without running it, using a disassembler to turn machine code into assembly or a decompiler to recover approximate C code. Dynamic analysis runs the program under a debugger to set breakpoints, step through instructions, and inspect registers and memory. Common targets include the calling convention, the stack frame layout, and strings or imported functions that hint at program behavior. Packers and obfuscation are used to make this analysis harder.

@@ -1,0 +1,3 @@
+# Retrieval-Augmented Generation
+
+Retrieval-augmented generation (RAG) improves a language model's answers by first retrieving relevant documents and adding them to the prompt. Keyword retrieval such as BM25 matches exact terms and handles names and rare words well. Semantic retrieval embeds the query and documents as vectors and compares them with cosine similarity, which finds matches that use different wording. Hybrid search combines both, for example with reciprocal rank fusion. Long documents are split into overlapping chunks before embedding. Asking the model to cite its sources makes answers easier to verify and reduces hallucination.

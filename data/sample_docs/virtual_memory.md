@@ -1,0 +1,3 @@
+# Virtual Memory
+
+Virtual memory gives each process its own address space that is larger than physical RAM. Addresses are split into pages, and a page table maps virtual pages to physical frames. When a process touches a page that is not in memory, a page fault occurs and the operating system loads the page from disk. The translation lookaside buffer (TLB) caches recent translations so most memory accesses avoid a page table walk. Page replacement algorithms such as LRU and the clock algorithm choose which page to evict when memory is full. Thrashing happens when processes spend more time paging than executing.
